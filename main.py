@@ -37,6 +37,12 @@ from datetime import datetime, timezone
 SEED = 0x5EEDF00D
 NSIM = 3000
 LAMPORTS_PER_SOL = 1e9
+# Extra dispersion (log10 SOL) convolved into each place's size
+# distribution. The Monte Carlo's place caps are too narrow on their own:
+# the realised caps at the reads move further than any single coin's
+# trajectory suggests (selection over thousands of coins, ramps), so the
+# size bins need a wider spread than the raw simulation gives.
+SIZE_WIDEN_LOG = float(os.environ.get("MAKEFUN_SIZE_WIDEN", "0.45"))
 
 
 def parse_time(s):
@@ -334,12 +340,36 @@ def main():
             rows_here += 1
 
     # ---- sizes: bins above background only ----
+    def widen(dist, sigma_log, n_bins):
+        """Convolve a bin distribution with a Gaussian of sd sigma_log."""
+        if sigma_log <= 0:
+            return dict(dist)
+        sigma_bins = sigma_log / 0.05
+        radius = max(1, int(math.ceil(3.0 * sigma_bins)))
+        kern = [math.exp(-(d * d) / (2.0 * sigma_bins * sigma_bins))
+                for d in range(-radius, radius + 1)]
+        ks = sum(kern)
+        kern = [k / ks for k in kern]
+        out = {}
+        for b, p in dist.items():
+            for i, kv in enumerate(kern):
+                nb = b + (i - radius)
+                if 0 <= nb < n_bins:
+                    out[nb] = out.get(nb, 0.0) + p * kv
+        tot_in = sum(dist.values())
+        tot_out = sum(out.values())
+        if tot_out > 0 and tot_in > 0:
+            f = tot_in / tot_out
+            out = {b: p * f for b, p in out.items()}
+        return out
+
     sizes = []
     for k in range(1, places + 1):
         raw = {}
         for (kk, b), cnt in size_counts.items():
             if kk == k:
                 raw[b] = cnt / total_sims
+        raw = widen(raw, SIZE_WIDEN_LOG, n_bins)
         s = sum(p for p in raw.values() if p >= 0.002)
         u = max(0.0, 1.0 - s) / n_bins
         for b in sorted(raw):

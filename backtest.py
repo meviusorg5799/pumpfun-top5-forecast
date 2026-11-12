@@ -110,10 +110,12 @@ def score(forecast, read_charts, history_mints, edges):
     return sum(totals) / n, sum(orders) / n, sum(sizes) / n, sum(agrees)
 
 
-def run_program(prog_dir, input_dir, output_dir):
+def run_program(prog_dir, input_dir, output_dir, extra_env=None):
     env = dict(os.environ)
     env["MAKEFUN_INPUT_DIR"] = input_dir
     env["MAKEFUN_OUTPUT_DIR"] = output_dir
+    if extra_env:
+        env.update(extra_env)
     os.makedirs(output_dir, exist_ok=True)
     r = subprocess.run([sys.executable, "main.py"], cwd=prog_dir, env=env,
                        capture_output=True, text=True, timeout=300)
@@ -136,13 +138,16 @@ def run_baseline(kit_dir, input_dir, output_dir):
         return json.load(f)
 
 
+WIDEN = os.environ.get("SWEEP_WIDEN", "0.45")
+
+
 def main():
     kit = os.path.abspath("../kit")
     marks = load_marks(os.path.join(kit, "input/history.ndjson"))
     task = json.load(open(os.path.join(kit, "input/task.json")))
     edges = task["size"]["edges"]
 
-    for cut in (3, 4):
+    for cut in (1, 2, 3, 4):
         with tempfile.TemporaryDirectory() as td:
             in_dir = os.path.join(td, "in")
             os.makedirs(in_dir)
@@ -164,7 +169,8 @@ def main():
                 caps = [math.log10(int(r["market_cap_lamports"])) - 9.0
                         for r in rows[:5]]
                 reads.append((chart, caps))
-            mine = run_program(".", in_dir, os.path.join(td, "out-mine"))
+            mine = run_program(".", in_dir, os.path.join(td, "out-mine"),
+                               {"MAKEFUN_SIZE_WIDEN": WIDEN})
             base = run_baseline(kit, in_dir, os.path.join(td, "out-base"))
             validate(mine)
             validate(base)
