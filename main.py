@@ -42,7 +42,7 @@ LAMPORTS_PER_SOL = 1e9
 # the realised caps at the reads move further than any single coin's
 # trajectory suggests (selection over thousands of coins, ramps), so the
 # size bins need a wider spread than the raw simulation gives.
-SIZE_WIDEN_LOG = float(os.environ.get("MAKEFUN_SIZE_WIDEN", "0.45"))
+SIZE_WIDEN_LOG = float(os.environ.get("MAKEFUN_SIZE_WIDEN", "0.15"))
 
 
 def parse_time(s):

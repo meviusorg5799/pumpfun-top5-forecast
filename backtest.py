@@ -138,7 +138,7 @@ def run_baseline(kit_dir, input_dir, output_dir):
         return json.load(f)
 
 
-WIDEN = os.environ.get("SWEEP_WIDEN", "0.45")
+WIDEN = os.environ.get("SWEEP_WIDEN", "0.15")
 
 
 def main():
